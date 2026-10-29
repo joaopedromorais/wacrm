@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { SUPPORT_WHATSAPP } from "@/components/brand/brand";
 import { isAsaasConfigured } from "@/lib/billing/asaas";
+import { LAUNCH, launchApplies } from "@/lib/billing/plans";
+import { supabaseAdmin } from "@/lib/flows/admin-client";
 import { createClient } from "@/lib/supabase/server";
 import {
   billingCopy,
@@ -44,6 +46,7 @@ export default async function AssinaturaPage() {
   let status: BillingStatus | null = null;
   let periodEnd: string | null = null;
   let hasCustomer = false;
+  let founder = false;
 
   if (profile?.account_id) {
     const [{ data: account }, { data: billing }] = await Promise.all([
@@ -54,7 +57,7 @@ export default async function AssinaturaPage() {
         .maybeSingle(),
       supabase
         .from("account_billing")
-        .select("status, current_period_end, provider_customer_id")
+        .select("status, current_period_end, provider_customer_id, launch_price")
         .eq("account_id", profile.account_id)
         .maybeSingle(),
     ]);
@@ -62,6 +65,7 @@ export default async function AssinaturaPage() {
     status = (billing?.status as BillingStatus | undefined) ?? null;
     periodEnd = billing?.current_period_end ?? null;
     hasCustomer = Boolean(billing?.provider_customer_id);
+    founder = billing?.launch_price === true;
   }
 
   const canSubscribe =
@@ -71,6 +75,20 @@ export default async function AssinaturaPage() {
     : canSubscribe
       ? "online"
       : "ask_owner";
+
+  // Vagas de lançamento: só faz sentido consultar no modo online.
+  let seatsTaken = 0;
+  if (mode === "online" && LAUNCH.enabled && !founder) {
+    const { data, error } = await supabaseAdmin().rpc("jpx_launch_seats_taken");
+    if (error) console.error("[assinatura] jpx_launch_seats_taken falhou:", error.message);
+    seatsTaken = Number(data ?? 0);
+  }
+  const launch = launchApplies(founder, seatsTaken);
+  const offer = {
+    launch,
+    founder,
+    remaining: launch && !founder ? Math.max(LAUNCH.seats - seatsTaken, 0) : null,
+  };
 
   const copy = billingCopy(status, periodEnd);
   const href = whatsappLink(
@@ -88,6 +106,7 @@ export default async function AssinaturaPage() {
       email={user.email ?? null}
       mode={mode}
       needsDocument={!hasCustomer}
+      offer={offer}
     />
   );
 }

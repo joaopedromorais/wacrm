@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { isValidCpfCnpj } from "./document";
-import { getPlan, monthlyEquivalent, periodEndFor, PLANS, todayInSaoPaulo } from "./plans";
+import {
+  getPlan,
+  LAUNCH,
+  launchApplies,
+  monthlyEquivalent,
+  periodEndFor,
+  PLANS,
+  priceFor,
+  savingsPercent,
+  todayInSaoPaulo,
+} from "./plans";
 
 describe("periodEndFor", () => {
   it("mensal: vencimento + 1 mês + 3 dias, fim do dia em SP", () => {
@@ -29,10 +39,20 @@ describe("planos", () => {
     expect(getPlan("vitalicio")).toBeNull();
     expect(getPlan(undefined)).toBeNull();
   });
-  it("planos longos saem mais baratos por mês", () => {
-    const [m, s, a] = PLANS.map(monthlyEquivalent);
+  it.each([true, false])("planos longos saem mais baratos por mês (lançamento=%s)", (launch) => {
+    const [m, s, a] = PLANS.map((p) => monthlyEquivalent(p, launch));
     expect(s).toBeLessThan(m);
     expect(a).toBeLessThan(s);
+  });
+
+  it("lançamento sempre mais barato que o preço cheio", () => {
+    for (const p of PLANS) expect(p.launchPrice).toBeLessThan(p.price);
+  });
+
+  it("preços de lançamento e selos de economia", () => {
+    expect(PLANS.map((p) => priceFor(p, true))).toEqual([127, 647, 1147]);
+    expect(PLANS.map((p) => savingsPercent(p, true))).toEqual([0, 15, 24]);
+    expect(PLANS.map((p) => savingsPercent(p, false))).toEqual([0, 15, 23]);
   });
 });
 
@@ -54,5 +74,14 @@ describe("isValidCpfCnpj", () => {
     ["123", false],
   ])("%s → %s", (doc, ok) => {
     expect(isValidCpfCnpj(doc)).toBe(ok);
+  });
+});
+
+describe("launchApplies", () => {
+  it("vale até a última vaga e depois só para fundadores", () => {
+    expect(launchApplies(false, 0)).toBe(true);
+    expect(launchApplies(false, LAUNCH.seats - 1)).toBe(true);
+    expect(launchApplies(false, LAUNCH.seats)).toBe(false);
+    expect(launchApplies(true, LAUNCH.seats + 10)).toBe(true);
   });
 });

@@ -70,13 +70,28 @@ só o botão de WhatsApp (etapa 1).
 
 Definidos em `src/lib/billing/plans.ts` (único lugar para mudar preço):
 
-| Plano | Valor | Por mês |
+| Plano | Lançamento (50 primeiros) | Preço cheio |
 |---|---|---|
-| Mensal | R$ 197,00 | R$ 197,00 |
-| Semestral | R$ 997,00 | R$ 166,17 |
-| Anual | R$ 1.797,00 | R$ 149,75 |
+| Mensal | R$ 127 | R$ 197 |
+| Semestral | R$ 647 (R$ 107,83/mês) | R$ 997 (R$ 166,17/mês) |
+| Anual | R$ 1.147 (R$ 95,58/mês) | R$ 1.797 (R$ 149,75/mês) |
 
 Tolerância após o vencimento: **3 dias** (`GRACE_DAYS`).
+
+### Preço de lançamento
+
+- Vale para as **50 primeiras contas que pagarem** (`LAUNCH.seats`).
+  Cadastro que não paga não ocupa vaga.
+- A conta vira **fundadora** (`launch_price = true`) e mantém o preço de
+  lançamento enquanto for assinante, inclusive ao trocar de plano.
+- Esgotadas as vagas, novos clientes veem e pagam o preço cheio sozinhos.
+- Encerrar antes: `LAUNCH.enabled = false` em `plans.ts`.
+- O valor cobrado é decidido no servidor, nunca vem do navegador.
+
+```sql
+SELECT jpx_launch_seats_taken();  -- vagas ocupadas
+SELECT account_id, status, plan FROM account_billing WHERE launch_price;  -- fundadores
+```
 
 ### Variáveis de ambiente (.env.local / servidor)
 

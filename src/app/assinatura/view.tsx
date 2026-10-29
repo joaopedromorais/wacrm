@@ -13,7 +13,7 @@ import {
 import type { BillingCopy } from "@/lib/billing/status-copy";
 import { cn } from "@/lib/utils";
 
-import { PlanPicker } from "./plan-picker";
+import { PlanPicker, type LaunchOffer } from "./plan-picker";
 import { SignOutButton } from "./sign-out-button";
 
 /** Parte visual de /assinatura (sem acesso a dados). */
@@ -24,6 +24,7 @@ export function AssinaturaView({
   email,
   mode,
   needsDocument,
+  offer,
 }: {
   copy: BillingCopy;
   href: string;
@@ -36,6 +37,7 @@ export function AssinaturaView({
    */
   mode: "online" | "whatsapp" | "ask_owner";
   needsDocument: boolean;
+  offer: LaunchOffer;
 }) {
   const description =
     mode === "online"
@@ -65,7 +67,7 @@ export function AssinaturaView({
               )}
             </div>
           )}
-          {mode === "online" && <PlanPicker needsDocument={needsDocument} />}
+          {mode === "online" && <PlanPicker needsDocument={needsDocument} offer={offer} />}
           {mode === "whatsapp" && (
             <a
               href={href}

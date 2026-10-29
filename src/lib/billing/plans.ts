@@ -14,18 +14,43 @@ export type PaymentMethod = 'PIX' | 'CREDIT_CARD'
 export interface Plan {
   id: PlanId
   name: string
-  /** Valor cobrado por ciclo. */
+  /** Preço cheio por ciclo (depois que as vagas de lançamento acabam). */
   price: number
+  /** Preço de lançamento por ciclo (fundadores). */
+  launchPrice: number
   months: number
   cycle: AsaasCycle
-  highlight?: string
 }
 
 export const PLANS: readonly Plan[] = [
-  { id: 'mensal', name: 'Mensal', price: 197, months: 1, cycle: 'MONTHLY' },
-  { id: 'semestral', name: 'Semestral', price: 997, months: 6, cycle: 'SEMIANNUALLY', highlight: 'Economize 15%' },
-  { id: 'anual', name: 'Anual', price: 1797, months: 12, cycle: 'YEARLY', highlight: 'Economize 24%' },
+  { id: 'mensal', name: 'Mensal', price: 197, launchPrice: 127, months: 1, cycle: 'MONTHLY' },
+  { id: 'semestral', name: 'Semestral', price: 997, launchPrice: 647, months: 6, cycle: 'SEMIANNUALLY' },
+  { id: 'anual', name: 'Anual', price: 1797, launchPrice: 1147, months: 12, cycle: 'YEARLY' },
 ] as const
+
+/**
+ * Preço de lançamento: vale para as primeiras `seats` contas que
+ * PAGAREM. Quem entrou como fundador mantém o preço de lançamento
+ * enquanto for assinante (inclusive ao trocar de plano).
+ * Para encerrar o lançamento antes: enabled = false.
+ */
+export const LAUNCH = { enabled: true, seats: 50 } as const
+
+/** A conta paga preço de lançamento? */
+export function launchApplies(isFounder: boolean, seatsTaken: number): boolean {
+  return LAUNCH.enabled && (isFounder || seatsTaken < LAUNCH.seats)
+}
+
+export function priceFor(plan: Plan, launch: boolean): number {
+  return launch ? plan.launchPrice : plan.price
+}
+
+/** Economia (%) frente a pagar o mensal da mesma tabela pelo mesmo período. */
+export function savingsPercent(plan: Plan, launch: boolean): number {
+  const monthly = PLANS.find((p) => p.id === 'mensal')!
+  const base = priceFor(monthly, launch) * plan.months
+  return Math.floor((1 - priceFor(plan, launch) / base) * 100)
+}
 
 /** Dias de tolerância depois do vencimento antes de bloquear. */
 export const GRACE_DAYS = 3
@@ -40,9 +65,9 @@ export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return typeof value === 'string' && (PAYMENT_METHODS as readonly string[]).includes(value)
 }
 
-/** Valor por mês, para exibir ("R$ 149,75/mês"). */
-export function monthlyEquivalent(plan: Plan): number {
-  return Math.round((plan.price / plan.months) * 100) / 100
+/** Valor por mês, para exibir ("R$ 95,58/mês"). */
+export function monthlyEquivalent(plan: Plan, launch = false): number {
+  return Math.round((priceFor(plan, launch) / plan.months) * 100) / 100
 }
 
 export function formatBRL(value: number): string {

@@ -1,20 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Loader2, QrCode } from "lucide-react";
+import { CreditCard, Loader2, QrCode, Sparkles } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import {
+  LAUNCH,
   PLANS,
   formatBRL,
   monthlyEquivalent,
+  priceFor,
+  savingsPercent,
   type PaymentMethod,
   type PlanId,
 } from "@/lib/billing/plans";
 import { cn } from "@/lib/utils";
 
-/** Escolha de plano + forma de pagamento → fatura do Asaas. */
-export function PlanPicker({ needsDocument }: { needsDocument: boolean }) {
+export interface LaunchOffer {
+  /** Esta conta paga preço de lançamento agora? */
+  launch: boolean;
+  /** Já é fundadora (preço garantido)? */
+  founder: boolean;
+  /** Vagas restantes (null quando não se aplica). */
+  remaining: number | null;
+}
+
+/**
+ * Escolha de plano + forma de pagamento → fatura do Asaas.
+ * Os preços aqui são só exibição: o valor cobrado é decidido no
+ * servidor (/api/billing/subscribe) com a mesma regra.
+ */
+export function PlanPicker({
+  needsDocument,
+  offer,
+}: {
+  needsDocument: boolean;
+  offer: LaunchOffer;
+}) {
+  const launch = offer.launch;
   const [plan, setPlan] = useState<PlanId>("anual");
   const [method, setMethod] = useState<PaymentMethod>("PIX");
   const [doc, setDoc] = useState("");
@@ -45,9 +68,33 @@ export function PlanPicker({ needsDocument }: { needsDocument: boolean }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {launch && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/40 bg-primary-soft px-3 py-2 text-sm">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+          <p className="text-foreground">
+            {offer.founder ? (
+              <>
+                <span className="font-semibold">Preço de fundador garantido</span>
+                <span className="text-muted-foreground"> enquanto você for assinante.</span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">Preço de lançamento</span>
+                <span className="text-muted-foreground">
+                  {" "}para os {LAUNCH.seats} primeiros clientes
+                  {offer.remaining !== null && ` — restam ${offer.remaining}`}. Garantido enquanto você for assinante.
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       <div role="radiogroup" aria-label="Plano" className="flex flex-col gap-2">
         {PLANS.map((p) => {
           const active = p.id === plan;
+          const savings = savingsPercent(p, launch);
+          const per = p.months === 1 ? "/mês" : p.months === 6 ? "/semestre" : "/ano";
           return (
             <button
               key={p.id}
@@ -63,22 +110,27 @@ export function PlanPicker({ needsDocument }: { needsDocument: boolean }) {
               <span className="flex flex-col">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground">
                   {p.name}
-                  {p.highlight && (
+                  {savings > 0 && (
                     <span className="whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-                      {p.highlight}
+                      Economize {savings}%
                     </span>
                   )}
                 </span>
                 {p.months > 1 && (
                   <span className="text-xs text-muted-foreground">
-                    {formatBRL(monthlyEquivalent(p))}/mês
+                    {formatBRL(monthlyEquivalent(p, launch))}/mês
                   </span>
                 )}
               </span>
-              <span className="shrink-0 pl-2 text-right text-sm font-semibold text-foreground">
-                {formatBRL(p.price)}
-                <span className="font-normal text-muted-foreground">
-                  {p.months === 1 ? "/mês" : p.months === 6 ? "/semestre" : "/ano"}
+              <span className="flex shrink-0 flex-col items-end pl-2 text-right">
+                {launch && (
+                  <span className="text-xs text-muted-foreground line-through">
+                    {formatBRL(p.price)}
+                  </span>
+                )}
+                <span className="text-sm font-semibold text-foreground">
+                  {formatBRL(priceFor(p, launch))}
+                  <span className="font-normal text-muted-foreground">{per}</span>
                 </span>
               </span>
             </button>

@@ -8,12 +8,16 @@
 //    apaga só cobranças pendentes/vencidas) e cria uma nova.
 // 4. Grava assinatura/plano na conta ANTES de buscar a fatura, para
 //    o webhook já encontrar a conta quando o pagamento chegar.
+// 5. Preço de lançamento: fundador sempre mantém; os demais só
+//    enquanto houver vaga (ver LAUNCH em plans.ts).
 // ============================================================
 
 import { isValidCpfCnpj, onlyDigits } from './document'
 import {
   getPlan,
   isPaymentMethod,
+  launchApplies,
+  priceFor,
   todayInSaoPaulo,
   type PaymentMethod,
   type Plan,
@@ -34,10 +38,13 @@ export interface BillingRow {
   provider_subscription_id: string | null
   plan: string | null
   payment_method: string | null
+  launch_price?: boolean | null
 }
 
 export interface SubscribeDeps {
   hasAccess(accountId: string): Promise<boolean>
+  /** Fundadores que já pagaram (vagas de lançamento ocupadas). */
+  launchSeatsTaken(): Promise<number>
   getBilling(accountId: string): Promise<BillingRow | null>
   saveBilling(accountId: string, patch: Partial<BillingRow>): Promise<void>
   createCustomer(input: { name: string; cpfCnpj: string; email: string | null; externalReference: string }): Promise<{ id: string }>
@@ -70,7 +77,10 @@ function openInvoice(payments: Array<{ status: string; invoiceUrl: string | null
   return payments.find((p) => OPEN_STATUSES.has(p.status) && p.invoiceUrl)?.invoiceUrl ?? null
 }
 
-export async function startSubscription(input: SubscribeInput, deps: SubscribeDeps): Promise<{ url: string; reused: boolean }> {
+export async function startSubscription(
+  input: SubscribeInput,
+  deps: SubscribeDeps,
+): Promise<{ url: string; reused: boolean; launch: boolean; value: number }> {
   const plan = getPlan(input.planId)
   if (!plan) throw new SubscribeError('Plano inválido.')
   if (!isPaymentMethod(input.method)) throw new SubscribeError('Forma de pagamento inválida.')
@@ -82,6 +92,8 @@ export async function startSubscription(input: SubscribeInput, deps: SubscribeDe
 
   const billing = await deps.getBilling(input.accountId)
   const sameProvider = billing?.provider === 'asaas'
+  const launch = launchApplies(billing?.launch_price === true, await deps.launchSeatsTaken())
+  const value = priceFor(plan, launch)
 
   // Mesma escolha + fatura aberta → reaproveita.
   if (
@@ -91,7 +103,7 @@ export async function startSubscription(input: SubscribeInput, deps: SubscribeDe
     billing.payment_method === method
   ) {
     const url = openInvoice(await deps.listPayments(billing.provider_subscription_id))
-    if (url) return { url, reused: true }
+    if (url) return { url, reused: true, launch, value }
   }
 
   let customerId = sameProvider ? billing?.provider_customer_id ?? null : null
@@ -115,7 +127,7 @@ export async function startSubscription(input: SubscribeInput, deps: SubscribeDe
   const subscription = await deps.createSubscription({
     customer: customerId,
     billingType: method,
-    value: plan.price,
+    value,
     nextDueDate: todayInSaoPaulo(),
     cycle: plan.cycle,
     description: `JPX CRM — Plano ${plan.name}`,
@@ -128,12 +140,14 @@ export async function startSubscription(input: SubscribeInput, deps: SubscribeDe
     provider_subscription_id: subscription.id,
     plan: plan.id,
     payment_method: method,
+    // fundador nunca perde a condição; não-fundador só ganha se houver vaga
+    launch_price: billing?.launch_price === true || launch,
   })
 
   // A primeira cobrança costuma existir na hora; tenta mais 2x por segurança.
   for (let attempt = 0; attempt < 3; attempt++) {
     const url = openInvoice(await deps.listPayments(subscription.id))
-    if (url) return { url, reused: false }
+    if (url) return { url, reused: false, launch, value }
     await deps.sleep(800)
   }
   throw new SubscribeError('A fatura ainda está sendo gerada. Tente novamente em alguns segundos.', 502)

@@ -1,6 +1,8 @@
 // ============================================================
 // POST /api/billing/subscribe — JPX CRM
 // body: { plan: 'mensal'|'semestral'|'anual', method: 'PIX'|'CREDIT_CARD', cpfCnpj }
+// O preço (lançamento ou cheio) é decidido AQUI, no servidor — nunca
+// vem do navegador.
 // → { url } da fatura do Asaas. Só dono/admin da conta.
 // Liberada no middleware para contas bloqueadas (é o caminho de pagar).
 // ============================================================
@@ -61,10 +63,15 @@ export async function POST(request: Request) {
       },
       {
         hasAccess: accountHasAccess,
+        async launchSeatsTaken() {
+          const { data, error } = await db.rpc('jpx_launch_seats_taken')
+          if (error) throw error
+          return Number(data ?? 0)
+        },
         async getBilling(accountId) {
           const { data, error } = await db
             .from('account_billing')
-            .select('provider, provider_customer_id, provider_subscription_id, plan, payment_method')
+            .select('provider, provider_customer_id, provider_subscription_id, plan, payment_method, launch_price')
             .eq('account_id', accountId)
             .maybeSingle()
           if (error) throw error

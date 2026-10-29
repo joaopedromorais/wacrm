@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 
 export const BRAND_NAME = "JPX CRM";
 
+/** WhatsApp comercial da JPX (formato wa.me: DDI + DDD + número). */
+export const SUPPORT_WHATSAPP = "5562993997161";
+
 /** Round JPX symbol — sidebar, compact headers. */
 export function BrandMark({
   size = 32,

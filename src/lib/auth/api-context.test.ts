@@ -19,6 +19,13 @@ vi.mock("@/lib/api-keys/store", () => ({
   touchLastUsed: (id: string) => touchLastUsed(id),
 }));
 
+// JPX CRM — trava de assinatura. Liberada por padrão; o teste da
+// conta bloqueada troca o retorno.
+const accountHasAccess = vi.fn<(accountId: string) => Promise<boolean>>();
+vi.mock("@/lib/billing/access", () => ({
+  accountHasAccess: (accountId: string) => accountHasAccess(accountId),
+}));
+
 // Import AFTER the mocks are registered.
 const { requireApiKey } = await import("./api-context");
 
@@ -47,6 +54,8 @@ beforeEach(() => {
   __resetRateLimitForTests();
   findActiveKeyByHash.mockReset();
   touchLastUsed.mockReset();
+  accountHasAccess.mockReset();
+  accountHasAccess.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -148,5 +157,24 @@ describe("requireApiKey", () => {
       "rate_limited",
       429,
     );
+  });
+});
+
+describe("requireApiKey — JPX assinatura", () => {
+  it("403s when the key's account has no active subscription", async () => {
+    findActiveKeyByHash.mockResolvedValue(row({ account_id: "acct-blocked" }));
+    accountHasAccess.mockResolvedValue(false);
+
+    await expectApiError(requireApiKey(reqWith(`Bearer ${KEY}`)), "forbidden", 403);
+    expect(accountHasAccess).toHaveBeenCalledWith("acct-blocked");
+    expect(touchLastUsed).not.toHaveBeenCalled();
+  });
+
+  it("checks the subscription of the key's own account", async () => {
+    findActiveKeyByHash.mockResolvedValue(row({ account_id: "acct-paid" }));
+
+    const ctx = await requireApiKey(reqWith(`Bearer ${KEY}`));
+    expect(ctx.accountId).toBe("acct-paid");
+    expect(accountHasAccess).toHaveBeenCalledWith("acct-paid");
   });
 });

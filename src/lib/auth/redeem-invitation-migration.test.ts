@@ -14,6 +14,9 @@ const tablesWithoutDomainData = new Set([
   "account_invitations",
   "member_presence",
   "pending_message_statuses",
+  // JPX CRM (migration 900): assinatura da conta, não é dado do cliente.
+  // Some junto com a conta antiga (ON DELETE CASCADE) ao aceitar convite.
+  "account_billing",
 ]);
 
 function accountScopedTables(): Set<string> {

@@ -25,6 +25,9 @@ vi.mock("@supabase/ssr", () => ({
       cookies: { setAll: (c: typeof refreshedCookies) => void };
     },
   ) => ({
+    // JPX CRM — trava de assinatura (migration 900). `true` por padrão
+    // para os cenários originais; middleware.billing.test.ts cobre o resto.
+    rpc: async () => ({ data: true, error: null }),
     auth: {
       // Mirrors real auth-js: an expired access token is transparently
       // refreshed inside getUser(), which rotates the refresh token and

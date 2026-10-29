@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { BILLING_PAGE, isBillingExemptApi } from '@/lib/billing/paths'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -77,6 +78,34 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
+  // JPX CRM — assinatura por conta (migration 900). Só para usuário
+  // logado: páginas do painel vão para /assinatura e APIs internas
+  // respondem 402 quando a conta não está ativa. Falha fechada: se a
+  // consulta der erro, trata como sem acesso.
+  if (user) {
+    const path = request.nextUrl.pathname
+    const gatedPage = protectedPaths.some(p => path.startsWith(p))
+    const gatedApi = path.startsWith('/api/') && !isBillingExemptApi(path)
+    if (gatedPage || gatedApi) {
+      const { data: hasAccess, error } = await supabase.rpc('my_account_has_access')
+      if (error) console.error('[billing] my_account_has_access falhou:', error.message)
+      if (hasAccess !== true) {
+        if (gatedApi) {
+          return withRefreshedCookies(
+            NextResponse.json(
+              { error: 'Assinatura inativa. Fale com a JPX para liberar sua conta.', code: 'account_inactive' },
+              { status: 402 }
+            )
+          )
+        }
+        const url = request.nextUrl.clone()
+        url.pathname = BILLING_PAGE
+        url.search = ''
+        return withRefreshedCookies(NextResponse.redirect(url))
+      }
+    }
   }
 
   // API routes that need auth (not webhooks)

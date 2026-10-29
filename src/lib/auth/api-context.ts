@@ -35,6 +35,7 @@ import { hashApiKey, looksLikeApiKey } from '@/lib/api-keys/keys';
 import { hasScope, type ApiScope } from '@/lib/api-keys/scopes';
 import { forbidden, rateLimited, unauthorized } from '@/lib/api/v1/respond';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { accountHasAccess } from '@/lib/billing/access';
 
 export interface ApiKeyContext {
   /** Discriminant — lets shared logic tell key auth from cookie auth. */
@@ -101,6 +102,11 @@ export async function requireApiKey(
 
   if (scope && !hasScope(row.scopes, scope)) {
     throw forbidden(`This API key is missing the '${scope}' scope`);
+  }
+
+  // JPX CRM — conta sem assinatura ativa não usa a API pública.
+  if (!(await accountHasAccess(row.account_id))) {
+    throw forbidden('This account has no active subscription');
   }
 
   touchLastUsed(row.id);

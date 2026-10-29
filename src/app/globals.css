@@ -229,6 +229,70 @@ html[data-theme="rose"] {
   --sidebar-ring: oklch(0.645 0.22 16);
 }
 
+/* ---- JPX brand ----------------------------------------------
+ * Accent: laranja JPX (#FF8C00), hover #C86400 — kit de marca JPX.
+ * In dark mode the neutral surfaces are swapped for the kit's warm
+ * black (#0A0704) and warm off-white text (#FFFCF5 / #C8B9A0)
+ * instead of the default cool slate. Higher specificity
+ * ([data-theme][data-mode]) overrides the MODE block above without
+ * touching it, which keeps upstream syncs conflict-free.
+ * ------------------------------------------------------------ */
+
+html[data-theme="jpx"] {
+  --primary: #ff8c00;
+  --primary-foreground: #0a0704;
+  --primary-hover: #c86400;
+  --primary-soft: rgb(255 140 0 / 0.12);
+  --primary-soft-2: rgb(255 140 0 / 0.22);
+  --ring: #ff8c00;
+  --chart-1: #ff8c00;
+  --chart-2: #c8b9a0;
+  --sidebar-primary: #ff8c00;
+  --sidebar-primary-foreground: #0a0704;
+  --sidebar-ring: #ff8c00;
+}
+
+html[data-theme="jpx"][data-mode="dark"] {
+  --background: #0a0704;
+  --foreground: #fffcf5;
+  --card: #14100b;
+  --card-2: #1a150f;
+  --card-foreground: #fffcf5;
+  --popover: #14100b;
+  --popover-foreground: #fffcf5;
+  --secondary: #211a12;
+  --secondary-foreground: #fffcf5;
+  --muted: #211a12;
+  --muted-foreground: #c8b9a0;
+  --accent: #211a12;
+  --accent-foreground: #fffcf5;
+  --border: #2e2419;
+  --input: #2e2419;
+  --chart-3: #783700;
+  --chart-4: #4a3a2a;
+  --chart-5: #2e2419;
+  --sidebar: #0f0b07;
+  --sidebar-foreground: #fffcf5;
+  --sidebar-accent: #211a12;
+  --sidebar-accent-foreground: #fffcf5;
+  --sidebar-border: #2e2419;
+}
+
+/* Light mode: #FF8C00 on white is too low-contrast for text/links,
+ * so the accent steps down to the kit's #C86400. */
+html[data-theme="jpx"][data-mode="light"] {
+  --primary: #c86400;
+  --primary-foreground: #fffcf5;
+  --primary-hover: #a85300;
+  --primary-soft: rgb(200 100 0 / 0.1);
+  --primary-soft-2: rgb(200 100 0 / 0.18);
+  --ring: #c86400;
+  --chart-1: #c86400;
+  --sidebar-primary: #c86400;
+  --sidebar-primary-foreground: #fffcf5;
+  --sidebar-ring: #c86400;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

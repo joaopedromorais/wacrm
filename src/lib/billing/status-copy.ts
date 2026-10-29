@@ -8,7 +8,10 @@ export type BillingStatus = 'pending' | 'active' | 'past_due' | 'canceled'
 
 export interface BillingCopy {
   title: string
+  /** Texto quando a liberação é manual (WhatsApp). */
   description: string
+  /** Texto quando dá para assinar online (Asaas). */
+  onlineDescription: string
   whatsappIntent: string
 }
 
@@ -28,6 +31,8 @@ export function billingCopy(
       title: 'Sua assinatura venceu',
       description:
         'Renove para voltar a usar o JPX CRM. Seus contatos, conversas e configurações continuam guardados.',
+      onlineDescription:
+        'Renove abaixo para voltar a usar o JPX CRM. Seus contatos, conversas e configurações continuam guardados.',
       whatsappIntent: 'renovar minha assinatura do JPX CRM',
     }
   }
@@ -36,6 +41,8 @@ export function billingCopy(
       title: 'Pagamento pendente',
       description:
         'Não identificamos o pagamento da sua assinatura. Fale com a gente para regularizar e liberar o acesso.',
+      onlineDescription:
+        'Não identificamos o pagamento da sua assinatura. Escolha um plano abaixo para regularizar e liberar o acesso na hora.',
       whatsappIntent: 'regularizar o pagamento do JPX CRM',
     }
   }
@@ -44,6 +51,7 @@ export function billingCopy(
       title: 'Assinatura cancelada',
       description:
         'Sua assinatura foi cancelada. Para reativar o JPX CRM, fale com a gente pelo WhatsApp.',
+      onlineDescription: 'Sua assinatura foi cancelada. Escolha um plano abaixo para reativar o JPX CRM.',
       whatsappIntent: 'reativar minha assinatura do JPX CRM',
     }
   }
@@ -51,6 +59,8 @@ export function billingCopy(
     title: 'Sua conta está quase pronta',
     description:
       'Para liberar o JPX CRM, fale com a gente pelo WhatsApp. Assim que o pagamento for confirmado, seu acesso é liberado.',
+    onlineDescription:
+      'Escolha seu plano e pague por Pix ou cartão. O acesso é liberado assim que o pagamento for confirmado.',
     whatsappIntent: 'ativar o JPX CRM',
   }
 }

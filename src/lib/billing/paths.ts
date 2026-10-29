@@ -18,7 +18,9 @@ export const BILLING_PAGE = '/assinatura'
  *  - crons: chamados por agendador externo com segredo próprio;
  *  - /api/v1: autenticada por API key — a trava fica em requireApiKey;
  *  - convites: quem aceita um convite entra numa conta que já paga,
- *    e o fluxo passa por essas rotas antes de mudar de conta.
+ *    e o fluxo passa por essas rotas antes de mudar de conta;
+ *  - cobrança: webhook do gateway e o endpoint de assinar, que é
+ *    justamente o caminho de quem está bloqueado.
  */
 const EXEMPT_API_PREFIXES = [
   '/api/whatsapp/webhook',
@@ -26,6 +28,8 @@ const EXEMPT_API_PREFIXES = [
   '/api/flows/cron',
   '/api/v1/',
   '/api/invitations/',
+  // cobrança: o webhook do Asaas e o "Assinar" de quem está bloqueado
+  '/api/billing/',
 ] as const
 
 export function isBillingExemptApi(pathname: string): boolean {

@@ -74,6 +74,8 @@ describe("middleware — assinatura JPX", () => {
     "/api/flows/cron",
     "/api/v1/messages",
     "/api/invitations/abc/redeem",
+    "/api/billing/asaas",
+    "/api/billing/subscribe",
   ])("nunca barra %s, mesmo com conta bloqueada", async (path) => {
     rpcResult = { data: false, error: null };
     const res = await middleware(req(path));

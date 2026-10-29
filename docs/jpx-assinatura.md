@@ -60,8 +60,62 @@ supabase db push --dry-run --include-all   # confira a lista
 supabase db push --include-all
 ```
 
-## Próxima etapa (gateway)
+## Cobrança automática (Asaas) — etapa 2
 
-O webhook do gateway (Asaas, Mercado Pago, Stripe…) vai só fazer
-automaticamente o que `jpx_set_account_access` faz hoje à mão, usando as
-colunas `provider`, `provider_customer_id` e `provider_subscription_id`.
+Com o Asaas configurado, a tela /assinatura mostra os planos e o cliente
+paga sozinho por **Pix** ou **cartão**. Sem configuração, volta a mostrar
+só o botão de WhatsApp (etapa 1).
+
+### Planos
+
+Definidos em `src/lib/billing/plans.ts` (único lugar para mudar preço):
+
+| Plano | Valor | Por mês |
+|---|---|---|
+| Mensal | R$ 197,00 | R$ 197,00 |
+| Semestral | R$ 997,00 | R$ 166,17 |
+| Anual | R$ 1.797,00 | R$ 149,75 |
+
+Tolerância após o vencimento: **3 dias** (`GRACE_DAYS`).
+
+### Variáveis de ambiente (.env.local / servidor)
+
+```env
+ASAAS_API_KEY=            # chave da API (Asaas → Integrações → Chaves de API)
+ASAAS_API_URL=https://api-sandbox.asaas.com/v3   # produção: https://api.asaas.com/v3
+ASAAS_WEBHOOK_TOKEN=      # token longo (32+ caracteres) — o mesmo do webhook
+```
+
+Gerar um token: `openssl rand -hex 32`. Nunca use a chave da API como token.
+
+### Webhook no Asaas (Integrações → Webhooks)
+
+- URL: `https://<seu-dominio>/api/billing/asaas`
+- Token de autenticação: o valor de `ASAAS_WEBHOOK_TOKEN`
+- Eventos: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_REFUNDED`,
+  `PAYMENT_CHARGEBACK_REQUESTED`, `SUBSCRIPTION_DELETED`, `SUBSCRIPTION_INACTIVATED`
+
+O Asaas só chama URL pública com HTTPS. Para testar no seu Mac, use um
+túnel (ex.: `cloudflared tunnel --url http://localhost:3000`) e cadastre a
+URL do túnel no webhook do **sandbox**.
+
+### O que cada evento faz
+
+| Evento | Efeito |
+|---|---|
+| Pagamento confirmado/recebido | Conta ativa até vencimento + período do plano + 3 dias |
+| Estorno / chargeback | Bloqueia (`past_due`) |
+| Assinatura removida/inativada | Só registra — o cliente usa até o fim do que pagou |
+| Outros | Registrados e ignorados |
+
+Todo evento fica em `billing_events` (auditoria). Eventos repetidos são ignorados.
+
+### Consultas úteis
+
+```sql
+SELECT * FROM jpx_list_accounts();
+SELECT received_at, event, outcome, subscription_id FROM billing_events ORDER BY received_at DESC LIMIT 20;
+```
+
+A liberação manual (`jpx_set_account_access`) continua valendo para
+cortesias e negociações.

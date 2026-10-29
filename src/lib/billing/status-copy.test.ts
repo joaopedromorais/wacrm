@@ -44,6 +44,8 @@ describe("isBillingExemptApi", () => {
     ["/api/whatsapp/send", false],
     ["/api/account/members", false],
     ["/api/v1", false],
+    ["/api/billing/asaas", true],
+    ["/api/billing/subscribe", true],
   ])("%s → %s", (path, expected) => {
     expect(isBillingExemptApi(path)).toBe(expected);
   });

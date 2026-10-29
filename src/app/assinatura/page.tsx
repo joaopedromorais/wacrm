@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { SUPPORT_WHATSAPP } from "@/components/brand/brand";
+import { isAsaasConfigured } from "@/lib/billing/asaas";
 import { createClient } from "@/lib/supabase/server";
 import {
   billingCopy,
@@ -35,13 +36,14 @@ export default async function AssinaturaPage() {
   // RLS: o usuário só enxerga o próprio profile e a própria conta.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("account_id")
+    .select("account_id, account_role")
     .eq("user_id", user.id)
     .maybeSingle();
 
   let accountName: string | null = null;
   let status: BillingStatus | null = null;
   let periodEnd: string | null = null;
+  let hasCustomer = false;
 
   if (profile?.account_id) {
     const [{ data: account }, { data: billing }] = await Promise.all([
@@ -52,14 +54,23 @@ export default async function AssinaturaPage() {
         .maybeSingle(),
       supabase
         .from("account_billing")
-        .select("status, current_period_end")
+        .select("status, current_period_end, provider_customer_id")
         .eq("account_id", profile.account_id)
         .maybeSingle(),
     ]);
     accountName = account?.name ?? null;
     status = (billing?.status as BillingStatus | undefined) ?? null;
     periodEnd = billing?.current_period_end ?? null;
+    hasCustomer = Boolean(billing?.provider_customer_id);
   }
+
+  const canSubscribe =
+    profile?.account_role === "owner" || profile?.account_role === "admin";
+  const mode = !isAsaasConfigured()
+    ? "whatsapp"
+    : canSubscribe
+      ? "online"
+      : "ask_owner";
 
   const copy = billingCopy(status, periodEnd);
   const href = whatsappLink(
@@ -75,6 +86,8 @@ export default async function AssinaturaPage() {
       href={href}
       accountName={accountName}
       email={user.email ?? null}
+      mode={mode}
+      needsDocument={!hasCustomer}
     />
   );
 }
